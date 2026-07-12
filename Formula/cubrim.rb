@@ -2,7 +2,7 @@ class Cubrim < Formula
   desc "N-dimensional-cube lossless compressor and .cbr archiver"
   homepage "https://cubrim.com"
   version "0.1.0-cubr0043"
-  license "LicenseRef-Cubrim"
+  license :cannot_represent
 
   on_macos do
     on_arm do
