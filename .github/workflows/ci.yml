@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  formula:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, ci-general, docker]
+    env:
+      BREW_IMAGE: ghcr.io/homebrew/brew@sha256:cde36c65432861cba33f5d7fb66c939c2dec634df4052fa1b56a3077031ac22e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Verify every release asset and round-trip
+        run: python3 tests/verify_formula.py --verify-releases
+
+      - name: Verify formula in pinned Homebrew container
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_ANALYTICS: "1"
+          HOMEBREW_NO_ENV_HINTS: "1"
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/work:ro" \
+            --workdir /work \
+            --env HOMEBREW_NO_AUTO_UPDATE \
+            --env HOMEBREW_NO_ANALYTICS \
+            --env HOMEBREW_NO_ENV_HINTS \
+            "${BREW_IMAGE}" \
+            bash -lc '
+              set -euo pipefail
+              brew tap arcanada-one/cubrim file:///work
+              brew ruby -- -c "$(brew --repo arcanada-one/cubrim)/Formula/cubrim.rb"
+              brew style arcanada-one/cubrim/cubrim
+              brew audit --strict arcanada-one/cubrim/cubrim
+              brew install arcanada-one/cubrim/cubrim
+              brew test arcanada-one/cubrim/cubrim
+            '
